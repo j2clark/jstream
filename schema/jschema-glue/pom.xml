@@ -3,12 +3,11 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
-        <artifactId>jstream.schema</artifactId>
-        <groupId>com.j2clark</groupId>
+        <artifactId>schema</artifactId>
+        <groupId>com.j2clark.jstream</groupId>
         <version>1.0</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
-
     <artifactId>jschema-glue</artifactId>
 
     <properties>
@@ -18,7 +17,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.j2clark</groupId>
+            <groupId>com.j2clark.jstream</groupId>
             <artifactId>jschema-api</artifactId>
             <version>1.0</version>
         </dependency>
