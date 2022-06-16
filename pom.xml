@@ -9,13 +9,11 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>jtransform-api</module>
-        <module>jtransform-kinesis</module>
-        <module>jtransform-kafka</module>
 
-        <module>jschema-api</module>
-        <module>jschema-glue</module>
-        <module>jschema-schemaregistry</module>
+
+
+        <module>schema</module>
+        <module>transform</module>
     </modules>
 
 
