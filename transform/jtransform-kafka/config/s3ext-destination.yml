@@ -69,6 +69,11 @@ Resources:
                   ParameterValue: '{symbol: .TICKER_SYMBOL}'
                 - ParameterName: JsonParsingEngine
                   ParameterValue: JQ-1.6
+            - Type: AppendDelimiterToRecord
+              Parameters:
+                - ParameterName: Delimiter
+                  ParameterValue: "\\n"
+
 
   DeliveryRole:
     Type: AWS::IAM::Role
