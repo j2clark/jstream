@@ -1,0 +1,113 @@
+# https://docs.aws.amazon.com/firehose/latest/dev/create-destination.html#create-destination-s3
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: Data transformation in real-time using Lambda and Kinesis
+
+Parameters:
+  DeliveryStreamName:
+    Type: String
+    Description: Name for Kinesis Data Firehose Delivery Stream
+
+Resources:
+
+  FirehoseBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+#      VersioningConfiguration:
+#        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldData
+            Status: Enabled
+            ExpirationInDays: 7
+
+  Firehose:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: !Ref DeliveryStreamName
+      DeliveryStreamType: DirectPut
+      ExtendedS3DestinationConfiguration:
+        BucketARN: !GetAtt FirehoseBucket.Arn
+        RoleARN: !GetAtt DeliveryRole.Arn
+        BufferingHints:
+          IntervalInSeconds: 60
+          SizeInMBs: 64
+        CloudWatchLoggingOptions:
+          Enabled: true
+          LogGroupName: "deliverystream"
+          LogStreamName: "s3Delivery"
+        CompressionFormat: UNCOMPRESSED
+#        EncryptionConfiguration:
+#          NoEncryptionConfig: NoEncryption
+#       https://docs.aws.amazon.com/firehose/latest/dev/s3-prefixes.html
+        DynamicPartitioningConfiguration:
+          Enabled: true
+#          RetryOptions:
+#            DurationInSeconds: 60
+        ErrorOutputPrefix: errors/
+        Prefix: data/date=!{timestamp:yyyy-MM-dd}/time=!{timestamp:HHmm}/symbol=!{partitionKeyFromQuery:symbol}/
+        ProcessingConfiguration:
+          Enabled: true
+          Processors:
+            - Type: MetadataExtraction
+              Parameters:
+#                 https://stedolan.github.io/jq/manual/v1.6/
+#                 we are parsing the kinesis example payload
+#                 {
+#                   "TICKER_SYMBOL": "QXZ",
+#                   "SECTOR": "HEALTHCARE",
+#                   "CHANGE": -0.05,
+#                   "PRICE": 84.51
+#                 }
+                - ParameterName: MetadataExtractionQuery
+                  ParameterValue: '{symbol: .TICKER_SYMBOL}'
+                - ParameterName: JsonParsingEngine
+                  ParameterValue: JQ-1.6
+
+  DeliveryRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: ''
+            Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+            Action: 'sts:AssumeRole'
+            Condition:
+              StringEquals:
+                'sts:ExternalId': !Ref 'AWS::AccountId'
+
+  DeliveryPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: firehose-delivery-policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 's3:AbortMultipartUpload'
+              - 's3:GetBucketLocation'
+              - 's3:GetObject'
+              - 's3:ListBucket'
+              - 's3:ListBucketMultipartUploads'
+              - 's3:PutObject'
+            Resource:
+              - !Sub "arn:aws:s3:::${FirehoseBucket}"
+              - !Sub "arn:aws:s3:::${FirehoseBucket}*"
+          - Effect: Allow
+            Action:
+              - 'kinesis:DescribeStream'
+              - 'kinesis:GetShardIterator'
+              - 'kinesis:GetRecords'
+            Resource: !GetAtt Firehose.Arn
+      Roles:
+        - !Ref DeliveryRole
