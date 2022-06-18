@@ -8,16 +8,8 @@
         <version>1.0</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
-    <groupId>com.j2clark.jstream</groupId>
-    <artifactId>transform</artifactId>
-    <packaging>pom</packaging>
 
-    <modules>
-        <module>jtransform-api</module>
-        <module>kinesis-firehose</module>
-        <module>kinesis-data</module>
-        <module>kafka</module>
-    </modules>
+    <artifactId>jetl</artifactId>
 
     <properties>
         <maven.compiler.source>11</maven.compiler.source>

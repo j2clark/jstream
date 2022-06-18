@@ -9,11 +9,9 @@
     <packaging>pom</packaging>
 
     <modules>
-
-
-
         <module>schema</module>
         <module>transform</module>
+        <module>jetl</module>
     </modules>
 
 

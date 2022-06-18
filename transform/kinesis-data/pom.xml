@@ -3,21 +3,13 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
-        <artifactId>jstream</artifactId>
-        <groupId>com.j2clark</groupId>
+        <groupId>com.j2clark.jstream</groupId>
+        <artifactId>transform</artifactId>
         <version>1.0</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
-    <groupId>com.j2clark.jstream</groupId>
-    <artifactId>transform</artifactId>
-    <packaging>pom</packaging>
 
-    <modules>
-        <module>jtransform-api</module>
-        <module>kinesis-firehose</module>
-        <module>kinesis-data</module>
-        <module>kafka</module>
-    </modules>
+    <artifactId>kinesis-data</artifactId>
 
     <properties>
         <maven.compiler.source>11</maven.compiler.source>

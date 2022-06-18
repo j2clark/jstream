@@ -1,4 +1,4 @@
-# jtransform-kafka
+# kinesis-firehose
 
 [Firehose Developer Guide](https://docs.aws.amazon.com/firehose/latest/dev/what-is-this-service.html)
 
