@@ -111,5 +111,41 @@ Resources:
               - "kinesis:GetShardIterator"
               - "kinesis:GetRecords"
               - "kinesis:ListShards"
-            Resource: "*"
 #             WE leave it open to read streams from any product group
+            Resource: "*"
+##         Glue Access
+#          - Effect: "Allow",
+#            Action:
+#              - "glue:GetTable"
+#              - "glue:GetTableVersion"
+#              - "glue:GetTableVersions"
+#            Resource:
+#              - !Join [':', ['arn:aws:glue', !Ref Region, !Ref AWS::AccountId, 'catalog']]
+#              - !Join [':', ['arn:aws:glue', !Ref Region, !Ref AWS::AccountId, 'database/*']]
+#              - !Join [':', ['arn:aws:glue', !Ref Region, !Ref AWS::AccountId, 'table/*']]
+##         KMS Decrypt S3 Data
+#          - Effect: "Allow",
+#            Action:
+#              - "kms:GenerateDataKey",
+#              - "kms:Decrypt"
+#            Resource:
+#              - !JOIN ['', ['arn:aws:kms:', !Ref Region, ':', !Ref AWS::AccountId, ':key/', !Ref KmsKeyName]]
+#            Condition:
+#              StringEquals:
+#                "kms:ViaService": "s3.us-east-1.amazonaws.com"
+#              StringLike:
+#                "kms:EncryptionContext:aws:s3:arn":
+#                  - "arn:aws:s3:::%FIREHOSE_POLICY_TEMPLATE_PLACEHOLDER%/*",
+#                  - "arn:aws:s3:::%FIREHOSE_POLICY_TEMPLATE_PLACEHOLDER%"
+##         KMS Decrypt Kinesis Data
+#          - Effect: "Allow",
+#            Action:
+#              - "kms:Decrypt"
+#            Resource:
+#              - !JOIN ['', ['arn:aws:kms:', !Ref Region, ':', !Ref AWS::AccountId, ':key/', !Ref KmsKeyName]]
+#            Condition:
+#              StringEquals:
+#                "kms:ViaService": "kinesis.us-east-1.amazonaws.com"
+#              StringLike:
+#                "kms:EncryptionContext:aws:kinesis:arn":
+#                  - !Join ['', ['arn:aws:kinesis:', !Ref Region, ':', !Ref AWS::AccountId, ':stream/*']]
