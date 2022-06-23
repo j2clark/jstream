@@ -3,13 +3,13 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
-        <groupId>com.j2clark.jstream</groupId>
         <artifactId>transform</artifactId>
+        <groupId>com.j2clark.jstream</groupId>
         <version>1.0</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>kinesis-firehose</artifactId>
+    <artifactId>kinesis-firehose-transform</artifactId>
 
     <properties>
         <maven.compiler.source>11</maven.compiler.source>
@@ -27,14 +27,12 @@
             <artifactId>aws-lambda-java-events</artifactId>
             <version>3.11.0</version>
         </dependency>
-        <!--
-        update shade configuration if used
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-lambda-java-log4j2</artifactId>
             <version>1.5.1</version>
             <scope>runtime</scope>
-        </dependency>-->
+        </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
@@ -57,27 +55,22 @@
                         <goals>
                             <goal>shade</goal>
                         </goals>
-                        <!--
-                        uncomment if log4j2 is used
                         <configuration>
                             <transformers>
                                 <transformer implementation="com.github.edwgiz.maven_shade_plugin.log4j2_cache_transformer.PluginsCacheFileTransformer">
                                 </transformer>
                             </transformers>
-                        </configuration>-->
+                        </configuration>
                     </execution>
                 </executions>
-                <!--
-                uncomment if log4j2 is used
                 <dependencies>
                     <dependency>
                         <groupId>com.github.edwgiz</groupId>
                         <artifactId>maven-shade-plugin.log4j2-cachefile-transformer</artifactId>
                         <version>2.13.0</version>
                     </dependency>
-                </dependencies>-->
+                </dependencies>
             </plugin>
         </plugins>
     </build>
-
 </project>

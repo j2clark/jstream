@@ -1,5 +1,8 @@
 # Sample Cloudformation Configurations
 
+[Cloudformation: Kinesis Data Firehose and Lambda](https://thomasstep.com/blog/cloudformation-example-for-kinesis-data-firehose-and-lambda)
+
+
 ### [s3-destination.yml](s3-destination.yml)
 
 s3-destination is a very simple sink to S3, formatting the prefix using the `timestamp` namespace.
@@ -19,7 +22,7 @@ See [S3 Prefixes](https://docs.aws.amazon.com/firehose/latest/dev/s3-prefixes.ht
 
 s3ext-destination expands in s3-destination, and utilizes the data payload to define the s3 prefix
 
-There are several significant differences from simple example, starting with configiuration: instead of `S3DestinationConfiguration` we use `ExtendedS3DestinationConfiguration`
+There are several significant differences from simple example, starting with configuration: instead of `S3DestinationConfiguration` we use `ExtendedS3DestinationConfiguration`
 
 We have added a new path segment, `symbol=!{partitionKeyFromQuery:symbol}/` which is pulled from json payload
 

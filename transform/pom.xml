@@ -13,10 +13,12 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>jtransform-api</module>
+        <!--<module>jtransform-api</module>-->
         <module>kinesis-firehose</module>
         <module>kinesis-data</module>
         <module>kafka</module>
+        <module>flink</module>
+        <module>kinesis-firehose-transform</module>
     </modules>
 
     <properties>

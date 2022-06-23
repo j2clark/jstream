@@ -1,19 +1,22 @@
 # jstream
-Stream processing solution for complex data structures
+
+A collection of example solutions for processing streaming data using kinesis and kafka
+
+Schema examples for Glue Schema-Registry and Confluent Schema-Registry 
 
 ## transforms
 
-[jtransform-api](jtransform-api/README.md) Generic api for writing record transformations 
-
-[jtransform-kafka](jtransform-kafka/README.md) supports kafka-connect
-
-[jtransform-kinesis](jtransform-kinesis/README.md) supports kinesis-firehouse
-
+[Transform Examples](transform/README.md)
 
 ## schemas
 
-[jschema-api](jschema-api/README.md) Generic api for supporting registered schemas
+[Schema Registry Examples](schema/README.md)
 
-[jschema-glue](jschema-glue/README.md) supports aws glue
+## jetl
 
-[jschema-schemaregistry](jschema-schemaregistry/README.md) supports confluent schema-registry
+[JETL](jetl/README.md)
+
+## Setup local environment (WINDOWS)
+
+[Development Environment Setup](DEV_ENV_SETUP.md)
+

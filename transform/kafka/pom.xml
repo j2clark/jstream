@@ -17,11 +17,11 @@
     </properties>
 
     <dependencies>
-        <dependency>
+        <!--<dependency>
             <groupId>com.j2clark.jstream</groupId>
             <artifactId>jtransform-api</artifactId>
             <version>1.0</version>
-        </dependency>
+        </dependency>-->
         <dependency>
             <groupId>com.j2clark.jstream</groupId>
             <artifactId>jschema-api</artifactId>
