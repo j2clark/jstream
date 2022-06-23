@@ -2,30 +2,93 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: IAM Policies for Kinesis DeliveryStream
 
 Parameters:
+  Region:
+    Type: String
+    Description: The region for all services to be created
+    Default: "us-east-1"
   ProductGroupName:
     Type: String
     Description: The Product GroupName is a pattern which all resource names must begin with
+#    Default: ktest
   S3DeliveryStreamBucket:
     Type: String
     Description: The S3 bucket name where devilerystream data is to be landed
+#    Default: firehose-deliverystream-test
   LambdaServiceRoleName:
     Type: String
     Description: The lambda role used for DeliveryStream Lambda Transformations
+#    Default: ktest-lambda-deliveryservice-role
   KinesisServiceRoleName:
     Type: String
     Description: The lambda role used for DeliveryStream Lambda Transformations
-
+#    Default: ktest-firehose-deliveryservice-role
+  SourceBucket:
+    Type: String
+    Description: The S3 bucket name where source code is located
+#    Default: firehose-deliverystream-test
+  SourceKey:
+    Type: String
+    Description: The object key for the jar or zip file
+#    Default: code/kinesis-firehose-transform-1.0.jar
 
 Resources:
 
-  StockTradeDeliveryStream:
+#  SimpleStockTradeDeliveryStream:
+#    Type: AWS::KinesisFirehose::DeliveryStream
+#    Properties:
+#      DeliveryStreamName: !Sub "${ProductGroupName}-stocktrade"
+#      DeliveryStreamType: DirectPut
+#      S3DestinationConfiguration:
+#        BucketARN: !Join ['', ['arn:aws:s3:::', !Ref S3DeliveryStreamBucket]]
+#        RoleARN: !Join ['', ['arn:aws:iam::', !Ref AWS::AccountId, ':role/', !Ref KinesisServiceRoleName]]
+#        BufferingHints:
+#          IntervalInSeconds: 60
+#          SizeInMBs: 50
+#        CloudWatchLoggingOptions:
+#          Enabled: true
+#          LogGroupName: !Ref ProductGroupName
+#          LogStreamName: "stocktrade"
+#        CompressionFormat: UNCOMPRESSED
+##       https://docs.aws.amazon.com/firehose/latest/dev/s3-prefixes.html
+#        Prefix: stocktrade/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/
+#        ErrorOutputPrefix: errors/stocktrade/
+
+  StockTradeTransformLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProductGroupName}-transformer-stocktrade"
+      Description: "Data transformation Lambda for Firehose Delivery Stream"
+      Handler: com.j2clark.jstream.kinesis.function.LambdaKinesisTransform
+      Role: !Join ['', ['arn:aws:iam::', !Ref AWS::AccountId, ':role/', !Ref LambdaServiceRoleName]]
+      Code:
+        S3Bucket: !Ref SourceBucket
+        S3Key: !Ref SourceKey
+#        S3ObjectVersion: !Ref SourceVersion
+      Runtime: java11
+      MemorySize: 512
+      Timeout: 60
+
+  LambdaFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${StockTradeTransformLambdaFunction}"
+      RetentionInDays: 7
+
+  LambdaFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt StockTradeTransformLambdaFunction.Arn
+      Principal: events.amazonaws.com
+
+  ExtendedStockTradeDeliveryStream:
     Type: AWS::KinesisFirehose::DeliveryStream
     Properties:
-      DeliveryStreamName: !Sub "${ProductGroupName}-stocktrade"
+      DeliveryStreamName: !Sub "${ProductGroupName}-stocktrade-transformed"
       DeliveryStreamType: DirectPut
-      S3DestinationConfiguration:
-        BucketARN: !Sub "arn:aws:s3:::${S3DeliveryStreamBucket}"
-        RoleARN: !Sub "arn:aws:iam::089600871681:role/${KinesisServiceRoleName}"
+      ExtendedS3DestinationConfiguration:
+        BucketARN: !Join [ '', [ 'arn:aws:s3:::', !Ref S3DeliveryStreamBucket ] ]
+        RoleARN: !Join [ '', [ 'arn:aws:iam::', !Ref AWS::AccountId, ':role/', !Ref KinesisServiceRoleName ] ]
         BufferingHints:
           IntervalInSeconds: 60
           SizeInMBs: 50
@@ -35,5 +98,14 @@ Resources:
           LogStreamName: "stocktrade"
         CompressionFormat: UNCOMPRESSED
 #       https://docs.aws.amazon.com/firehose/latest/dev/s3-prefixes.html
+#        DynamicPartitioningConfiguration:
+#          Enabled: true
         Prefix: stocktrade/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/
         ErrorOutputPrefix: errors/stocktrade/
+        ProcessingConfiguration:
+          Enabled: 'true'
+          Processors:
+            - Parameters:
+                - ParameterName: LambdaArn
+                  ParameterValue: !GetAtt StockTradeTransformLambdaFunction.Arn
+              Type: Lambda
