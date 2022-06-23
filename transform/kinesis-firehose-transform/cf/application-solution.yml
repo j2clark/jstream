@@ -1,0 +1,139 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: IAM Policies for Kinesis DeliveryStream
+
+Parameters:
+  ProductGroupName:
+    Type: String
+    Description: The Product GroupName is a pattern which all resource names must begin with
+  S3DeliveryStreamBucket:
+    Type: String
+    Description: The S3 bucket name where devilerystream data is to be landed
+#  LambdaServiceRoleName:
+#    Type: String
+#    Description: The lambda role used for DeliveryStream Lambda Transformations
+#  KinesisServiceRoleName:
+#    Type: String
+#    Description: The lambda role used for DeliveryStream Lambda Transformations
+
+
+Resources:
+  LambdaServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProductGroupName}-lambda-deliveryservice-role"
+      Description: "role for lambda functions transforming kinesis deliverystream records"
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: ''
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+  LambdaServicePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub "${ProductGroupName}-lambda-deliverystream-policy"
+      Roles:
+        - !Ref LambdaServiceRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          #          A simple copy of AWSLambdaKinesisExecutionRole
+          Effect: Allow
+          Action:
+            - "kinesis:DescribeStream"
+            - "kinesis:DescribeStreamSummary"
+            - "kinesis:GetRecords"
+            - "kinesis:GetShardIterator"
+            - "kinesis:ListShards"
+            - "kinesis:ListStreams"
+            - "kinesis:SubscribeToShard"
+            - "logs:CreateLogGroup"
+            - "logs:CreateLogStream"
+            - "logs:PutLogEvents"
+          Resource:
+            - "*"
+
+  KinesisFirehoseServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProductGroupName}-firehose-deliveryservice-role"
+      Description: ""
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: ''
+            Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+            Action: 'sts:AssumeRole'
+  KinesisFirehoseServicePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub "${ProductGroupName}-firehose-deliverystream-policy"
+      Roles:
+        - !Ref KinesisFirehoseServiceRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          #         Cloudwatch Loggin
+          - Effect: Allow
+            Action:
+              - "logs:CreateLogGroup"
+              - "logs:CreateLogStream"
+              - "logs:PutLogEvents"
+            Resource:
+              #             WE leave it open to read streams from any product group
+              #             The only limit is streams must be owned by account holder
+              - "arn:aws:kinesis:us-east-1:089600871681:*"
+          #         S3 Delivery Policy
+          - Effect: Allow
+            Action:
+              - "s3:AbortMultipartUpload"
+              - "s3:GetBucketLocation"
+              - "s3:GetObject"
+              - "s3:ListBucket"
+              - "s3:ListBucketMultipartUploads"
+              - "s3:PutObject"
+            Resource:
+              - !Sub "arn:aws:s3:::${S3DeliveryStreamBucket}"
+              - !Sub "arn:aws:s3:::${S3DeliveryStreamBucket}/*"
+          #         Lambda Execution Policy
+          - Effect: Allow
+            Action:
+              - "lambda:InvokeFunction"
+              - "lambda:GetFunctionConfiguration"
+            Resource:
+              - "arn:aws:lambda:us-east-1:089600871681:function:${ProductGroupName}*:$LATEST"
+          #         Kinesis Data Stream Source
+          - Effect: Allow
+            Action:
+              - "kinesis:DescribeStream"
+              - "kinesis:GetShardIterator"
+              - "kinesis:GetRecords"
+              - "kinesis:ListShards"
+            Resource:
+              #             WE leave it open to read streams from any product group
+              #             The only limit is streams must be owned by account holder
+              - "arn:aws:kinesis:us-east-1:089600871681:*"
+
+  StockTradeDeliveryStream:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: !Sub "${ProductGroupName}-stocktrade"
+      DeliveryStreamType: DirectPut
+      S3DestinationConfiguration:
+        BucketARN: !Sub "arn:aws:s3:::${S3DeliveryStreamBucket}"
+        RoleARN: !Ref KinesisFirehoseServiceRole
+        BufferingHints:
+          IntervalInSeconds: 60
+          SizeInMBs: 50
+        CloudWatchLoggingOptions:
+          Enabled: true
+          LogGroupName: !Ref ProductGroupName
+          LogStreamName: "stocktrade"
+        CompressionFormat: UNCOMPRESSED
+        #       https://docs.aws.amazon.com/firehose/latest/dev/s3-prefixes.html
+        Prefix: stocktrade/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/
+        ErrorOutputPrefix: errors/stocktrade/

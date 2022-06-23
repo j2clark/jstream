@@ -1,0 +1,39 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: IAM Policies for Kinesis DeliveryStream
+
+Parameters:
+  ProductGroupName:
+    Type: String
+    Description: The Product GroupName is a pattern which all resource names must begin with
+  S3DeliveryStreamBucket:
+    Type: String
+    Description: The S3 bucket name where devilerystream data is to be landed
+  LambdaServiceRoleName:
+    Type: String
+    Description: The lambda role used for DeliveryStream Lambda Transformations
+  KinesisServiceRoleName:
+    Type: String
+    Description: The lambda role used for DeliveryStream Lambda Transformations
+
+
+Resources:
+
+  StockTradeDeliveryStream:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: !Sub "${ProductGroupName}-stocktrade"
+      DeliveryStreamType: DirectPut
+      S3DestinationConfiguration:
+        BucketARN: !Sub "arn:aws:s3:::${S3DeliveryStreamBucket}"
+        RoleARN: !Sub "arn:aws:iam::089600871681:role/${KinesisServiceRoleName}"
+        BufferingHints:
+          IntervalInSeconds: 60
+          SizeInMBs: 50
+        CloudWatchLoggingOptions:
+          Enabled: true
+          LogGroupName: !Ref ProductGroupName
+          LogStreamName: "stocktrade"
+        CompressionFormat: UNCOMPRESSED
+#       https://docs.aws.amazon.com/firehose/latest/dev/s3-prefixes.html
+        Prefix: stocktrade/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/
+        ErrorOutputPrefix: errors/stocktrade/
