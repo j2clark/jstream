@@ -2,6 +2,10 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: IAM Policies for Kinesis DeliveryStream
 
 Parameters:
+  Region:
+    Type: String
+    Description: The region for all services to be created
+    Default: us-east-1
   S3DeliveryStreamBucket:
     Type: String
     Description: The S3 bucket name where devilerystream data is to be landed
@@ -46,8 +50,7 @@ Resources:
             - "logs:CreateLogGroup"
             - "logs:CreateLogStream"
             - "logs:PutLogEvents"
-          Resource:
-            - "*"
+          Resource: "*"
 
   KinesisFirehoseServiceRole:
     Type: AWS::IAM::Role
@@ -71,16 +74,16 @@ Resources:
       PolicyDocument:
         Version: 2012-10-17
         Statement:
-#         Cloudwatch Loggin
+#         Cloudwatch Logging
           - Effect: Allow
             Action:
               - "logs:CreateLogGroup"
               - "logs:CreateLogStream"
               - "logs:PutLogEvents"
-            Resource:
-              #             WE leave it open to read streams from any product group
-              #             The only limit is streams must be owned by account holder
-              - "arn:aws:kinesis:us-east-1:089600871681:*"
+            Resource: "*"
+#             WE leave it open to read streams from any product group
+#             The only limit is streams must be owned by account holder
+#              - !Join [':', ['arn:aws:kinesis', !Ref Region, !Ref AWS::AccountId, '*']]
 #         S3 Delivery Policy
           - Effect: Allow
             Action:
@@ -91,15 +94,16 @@ Resources:
               - "s3:ListBucketMultipartUploads"
               - "s3:PutObject"
             Resource:
-              - !Sub "arn:aws:s3:::${S3DeliveryStreamBucket}"
-              - !Sub "arn:aws:s3:::${S3DeliveryStreamBucket}/*"
+              - !Join ['', ['arn:aws:s3:::', !Ref S3DeliveryStreamBucket]]
+              - !Join ['', ['arn:aws:s3:::', !Ref S3DeliveryStreamBucket, '/*']]
 #         Lambda Execution Policy
           - Effect: Allow
             Action:
               - "lambda:InvokeFunction"
               - "lambda:GetFunctionConfiguration"
             Resource:
-              - "arn:aws:lambda:us-east-1:089600871681:function:${ProductGroupName}*:$LATEST"
+#              - !Join ['', ['arn:aws:lambda:', !Ref Region, ':', !Ref AWS::AccountId, ':function', !Ref ProductGroupName, '*:$LATEST']]
+              - !Join ['', ['arn:aws:lambda:', !Ref Region, ':', !Ref AWS::AccountId, ':function:', !Ref ProductGroupName, '*:$LATEST']]
 #         Kinesis Data Stream Source
           - Effect: Allow
             Action:
@@ -107,7 +111,5 @@ Resources:
               - "kinesis:GetShardIterator"
               - "kinesis:GetRecords"
               - "kinesis:ListShards"
-            Resource:
+            Resource: "*"
 #             WE leave it open to read streams from any product group
-#             The only limit is streams must be owned by account holder
-              - "arn:aws:kinesis:us-east-1:089600871681:*"
