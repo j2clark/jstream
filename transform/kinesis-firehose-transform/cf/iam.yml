@@ -102,8 +102,8 @@ Resources:
               - "lambda:InvokeFunction"
               - "lambda:GetFunctionConfiguration"
             Resource:
-#              - !Join ['', ['arn:aws:lambda:', !Ref Region, ':', !Ref AWS::AccountId, ':function', !Ref ProductGroupName, '*:$LATEST']]
-              - !Join ['', ['arn:aws:lambda:', !Ref Region, ':', !Ref AWS::AccountId, ':function:', !Ref ProductGroupName, '*:$LATEST']]
+#              - "*"
+               - !Join ['', ['arn:aws:lambda:', !Ref Region, ':', !Ref AWS::AccountId, ':function:', !Ref ProductGroupName, '*']]
 #         Kinesis Data Stream Source
           - Effect: Allow
             Action:
