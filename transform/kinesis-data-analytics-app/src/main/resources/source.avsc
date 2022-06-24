@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "namespace": "com.j2clark.avro",
+  "name": "stocktrade",
+  "fields": [
+    {"name": "CHANGE", "type":  "double"},
+    {"name": "PRICE", "type":  "double"},
+    {"name": "TICKER_SYMBOL", "type":  "string"},
+    {"name": "SECTOR", "type":  "string"}
+  ]
+}

@@ -19,6 +19,7 @@
         <module>kafka</module>
         <module>flink</module>
         <module>kinesis-firehose-transform</module>
+        <module>kinesis-data-analytics-app</module>
     </modules>
 
     <properties>

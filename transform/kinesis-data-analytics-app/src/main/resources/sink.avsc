@@ -1,0 +1,9 @@
+{
+  "type": "record",
+  "namespace": "com.j2clark.avro",
+  "name": "stockprice",
+  "fields": [
+    {"name": "symbol", "type":  "string"},
+    {"name": "price", "type":  "string"}
+  ]
+}
