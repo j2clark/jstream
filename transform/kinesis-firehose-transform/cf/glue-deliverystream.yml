@@ -1,0 +1,96 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: IAM Policies for Kinesis DeliveryStream
+
+Parameters:
+  Region:
+    Type: String
+    Description: The region for all services to be created
+    Default: "us-east-1"
+  GlueDatabaseName:
+    Type: String
+    Description: The name of the glue database
+#  GlueTableName1:
+#    Type: String
+#    Description: The name of the glue database
+#  ProductGroupName:
+#    Type: String
+#    Description: The Product GroupName is a pattern which all resource names must begin with
+#  #    Default: ktest
+  S3DeliveryStreamBucket:
+    Type: String
+    Description: The S3 bucket name where devilerystream data is to be landed
+    Default: firehose-deliverystream-test
+#  LambdaServiceRoleName:
+#    Type: String
+#    Description: The lambda role used for DeliveryStream Lambda Transformations
+#  #    Default: ktest-lambda-deliveryservice-role
+#  KinesisServiceRoleName:
+#    Type: String
+#    Description: The lambda role used for DeliveryStream Lambda Transformations
+#  #    Default: ktest-firehose-deliveryservice-role
+#  SourceBucket:
+#    Type: String
+#    Description: The S3 bucket name where source code is located
+#  #    Default: firehose-deliverystream-test
+#  SourceKey:
+#    Type: String
+#    Description: The object key for the jar or zip file
+##    Default: code/kinesis-firehose-transform-1.0.jar
+
+Resources:
+
+#  service-role/AWSGlueServiceRole-ktest
+
+  GlueDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: !Ref GlueDatabaseName
+        Description: Database to hold tables for flights data
+#        LocationUri: !Join ['', 's3://', !Ref S3DeliveryStreamBucket, ]s3://crawler-public-us-east-1/flight/2016/csv/
+#        CreateTableDefaultPermissions:
+#          - PrincipalPrivileges
+#        Parameters: Json
+#        TargetDatabase:
+#          DatabaseIdentifier
+
+  StockTradeGlueTable:
+    Type: AWS::Glue::Table
+    DependsOn: GlueDatabase
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseName: !Ref GlueDatabaseName
+      TableInput:
+#        Name: !Ref TableName1
+        Name: stocktrade
+        TableType: EXTERNAL_TABLE
+        Parameters: {
+          "classification": "json"
+        }
+        PartitionKeys:
+          - Name: year
+            Type: string
+          - Name: month
+            Type: string
+          - Name: day
+            Type: string
+          - Name: hour
+            Type: string
+        StorageDescriptor:
+          InputFormat: org.apache.hadoop.mapred.TextInputFormat
+          OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
+          Columns:
+            - Name: change
+              Type: double
+            - Name: price
+              Type: double
+            - Name: ticker_symbol
+              Type: string
+            - Name: sector
+              Type: string
+          Location: !Join ['', ['s3://', !Ref S3DeliveryStreamBucket, '/stocktrade/']]
+          SerdeInfo:
+            Parameters:
+              paths: "CHANGE,PRICE,SECTOR,TICKER_SYMBOL"
+            SerializationLibrary: org.openx.data.jsonserde.JsonSerDe
