@@ -51,7 +51,7 @@ Resources:
     Properties:
       ApplicationName: !Sub "${ProductGroupName}-analyticsstarterkit"
       ApplicationMode: STREAMING
-      ServiceExecutionRole: !Join ['', ['arn:aws:iam::089600871681:role/', !Ref RoleName]]
+      ServiceExecutionRole: !Join ['', ['arn:aws:iam::', !Ref AWS::AccountId, ':role/', !Ref RoleName]]
       RuntimeEnvironment: FLINK-1_13
       ApplicationConfiguration:
         EnvironmentProperties:

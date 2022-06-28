@@ -31,6 +31,14 @@ import com.amazonaws.services.kinesisanalytics.runtime.KinesisAnalyticsRuntime;
 
 public class SessionProcessor {
 
+    public static final String S3_OUTPUT_PATH = "s3_output_path";
+
+    public static final String BUCKET_CHECK_INTERVAL = "bucket_check_interval_in_seconds";
+    public static final String ROLLING_INTERVAL = "rolling_interval_in_seconds";
+    public static final String INACTIVITY_INTERVAL = "inactivity_interval_in_seconds";
+
+    public static final String SESSION_TIMEOUT = "session_time_out_in_minutes";
+
     private static final Logger log = LogManager.getLogger(SessionProcessor.class);
 
     /**
@@ -55,21 +63,21 @@ public class SessionProcessor {
             throw new RuntimeException(
                     "Runtime properties are invalid. Will not proceed to start Kinesis Analytics Application");
         env.setStreamTimeCharacteristic(TimeCharacteristic.IngestionTime);
-        env.registerType(Event.class);
+        env.registerType(StockTrade.class);
         DataStream<String> stream = createKinesisSource(env, parameter);
         log.info("Kinesis stream created.");
 
         ObjectMapper objectMapper = new ObjectMapper();
-        KeyedStream<Event, String> keyedStream = stream.map(record -> {
+        KeyedStream<StockTrade, String> keyedStream = stream.map(record -> {
             try {
-                return objectMapper.readValue(record, Event.class);
+                return objectMapper.readValue(record, StockTrade.class);
             } catch (Exception e) {
                 log.error("Exception in parsing the input records to Event POJO. "
                         + "Please make sure the input record structure is compatible with the POJO. Input record: "
                         + record);
                 return null;
             }
-        }).filter(Objects::nonNull).keyBy(Event::getSession_id);
+        }).filter(Objects::nonNull).keyBy(StockTrade::getTickerSymbol);
 
         /**
          * EventTimeSessionWindows - The timestamp when the event occurred. This is also
@@ -116,7 +124,7 @@ public class SessionProcessor {
     private static StreamingFileSink<String> createS3Sink(ParameterTool parameter) {
         log.info("Creating S3 sink from Application Properties");
         final StreamingFileSink<String> sink = StreamingFileSink
-                .forRowFormat(new Path(parameter.get("s3_output_path")), new SimpleStringEncoder<String>("UTF-8"))
+                .forRowFormat(new Path(parameter.get(S3_OUTPUT_PATH)), new SimpleStringEncoder<String>("UTF-8"))
                 .withBucketCheckInterval(
                         TimeUnit.SECONDS.toMillis(Long.parseLong(parameter.get("bucket_check_interval_in_seconds"))))
                 .withRollingPolicy(DefaultRollingPolicy.create()

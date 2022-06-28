@@ -4,7 +4,7 @@ import org.apache.flink.api.common.functions.AggregateFunction;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 
-public class Aggregator implements AggregateFunction<Event, String, String> {
+public class Aggregator implements AggregateFunction<StockTrade, String, String> {
 
     private static final long serialVersionUID = -8528772774907786176L;
 
@@ -14,7 +14,7 @@ public class Aggregator implements AggregateFunction<Event, String, String> {
     }
 
     @Override
-    public String add(Event value, String accumulator) {
+    public String add(StockTrade value, String accumulator) {
         String newAccumulator = null;
         try {
             newAccumulator =  new String(accumulator).concat("$").concat(new ObjectMapper().writeValueAsString(value));
