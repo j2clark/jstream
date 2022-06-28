@@ -23,10 +23,10 @@ import org.apache.flink.streaming.api.windowing.assigners.ProcessingTimeSessionW
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.connectors.kinesis.FlinkKinesisConsumer;
 import org.apache.flink.streaming.connectors.kinesis.config.ConsumerConfigConstants;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import com.amazonaws.services.kinesisanalytics.runtime.KinesisAnalyticsRuntime;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class SessionProcessor {
@@ -39,7 +39,7 @@ public class SessionProcessor {
 
     public static final String SESSION_TIMEOUT = "session_time_out_in_minutes";
 
-    private static final Logger log = LogManager.getLogger(SessionProcessor.class);
+    private static final Logger log = LoggerFactory.getLogger(SessionProcessor.class);
 
     /**
      * Main method and the entry point for Kinesis Data Analytics Flink Application.

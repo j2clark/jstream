@@ -6,8 +6,6 @@ import java.util.List;
 
 import org.apache.flink.kinesis.shaded.com.amazonaws.services.s3.AmazonS3;
 import org.apache.flink.kinesis.shaded.com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.kinesis.AmazonKinesis;
@@ -15,11 +13,13 @@ import com.amazonaws.services.kinesis.AmazonKinesisClientBuilder;
 import com.amazonaws.services.kinesis.model.ListShardsRequest;
 import com.amazonaws.services.kinesis.model.ListShardsResult;
 import com.amazonaws.services.kinesis.model.Shard;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class SessionUtil {
 
-    private static final Logger log = LogManager.getLogger(SessionUtil.class);
+    private static final Logger log = LoggerFactory.getLogger(SessionUtil.class);
 
     /**
      * Method checks if a Kinesis Stream exist

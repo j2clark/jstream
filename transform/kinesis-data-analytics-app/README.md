@@ -25,6 +25,20 @@ Transform data stream into 1 or more records, validated by schema
 
 Amazon Kinesis Data Analytics Developer Guid Documentation [Step 3: Create and Run a Kinesis Data Analytics for Apache Flink Application](https://docs.aws.amazon.com/kinesisanalytics/latest/java/get-started-exercise.html) and github repo [aws-samples/amazon-kinesis-data-analytics-java-examples](https://github.com/aws-samples/amazon-kinesis-data-analytics-java-examples) do not line up. I start in [GettingStarted_1_11](https://github.com/aws-samples/amazon-kinesis-data-analytics-java-examples/tree/master/GettingStarted_1_11)
 
+## Code Versions
+
+[Creating a Kinesis Data Analytics for Apache Flink Application](https://docs.aws.amazon.com/kinesisanalytics/latest/java/how-creating-apps.html)
+
+|Component|	Version|
+|---|---|
+|Java|	11 (recommended)|
+|Scala|	2.12|
+|Kinesis Data Analytics for Flink Runtime (aws-kinesisanalytics-runtime)|	1.2.0|
+|Kinesis Data Analytics Flink Connectors (aws-kinesisanalytics-flink)|	2.0.0|
+|AWS Kinesis Connector (flink-connector-kinesis)|	1.13.2|
+|Apache Beam (Beam Applications Only)|	2.33.0, with Jackson version 2.12.2|
+
+Example [pom.xml](https://github.com/aws-samples/amazon-kinesis-data-analytics-java-examples/blob/master/GettingStarted/pom.xml)
 
 ## Quick Start
 
