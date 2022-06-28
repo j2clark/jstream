@@ -1,7 +1,7 @@
 # Kinesis Data Stream Analytics Application
 
 TODO: 
-1. Get Getting Started application working and tested (use [[cloudformation.yml](cf/cloudformation.yml) stack)
+1. Get Getting Started application working and tested (use [[cloudformation.yml](cf/application.yml) stack)
 2. Adapt to write to Stream
 3. Use GlueSchemaRepository for input/output
 
@@ -38,7 +38,11 @@ aws s3 cp kinesis-data-analytics-app-1.0.jar s3://firehose-deliverystream-test/c
 aws kinesis create-stream --stream-name kda_flink_starter_kit_kinesis_stream --shard-count 4
 ```
 
+## DEV NOTES
 
+I had issues creating analytics role AND application in same cloudformation template - access to the s3 code was not allowed
+
+Separating role and application into separate configs seems to have solved this. I spent quite a bit of time trying to narrow down issue, but needed to move on.
 
 
 
