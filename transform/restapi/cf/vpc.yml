@@ -1,0 +1,437 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: VPC Configuration
+
+# https://network00.com/NetworkTools/IPv4SubnetCreator/
+
+Parameters:
+  EnvironmentName:
+    Description: An environment name prefixed to resource names and tags
+    Type: String
+
+  VpcCIDR:
+    Description: The IP range (CIDR notation) for the VPC
+    Type: String
+    Default: 10.0.0.0/16
+
+  PublicSubnet1CIDR:
+    Description: The IP range (CIDR notation) for the public subnet in the first availability zone
+    Type: String
+    Default: 10.0.0.0/20
+  PublicSubnet2CIDR:
+    Description: The IP range (CIDR notation) for the public subnet in the second availability zone
+    Type: String
+    Default: 10.0.16.0/20
+  PublicSubnet3CIDR:
+    Description: The IP range (CIDR notation) for the public subnet in the third availability zone
+    Type: String
+    Default: 10.0.32.0/20
+
+  PrivateSubnet1CIDR:
+    Description: The IP range (CIDR notation) for the private subnet in the first availability zone
+    Type: String
+    Default: 10.0.48.0/20
+  PrivateSubnet2CIDR:
+    Description: The IP range (CIDR notation) for the private subnet in the second availability zone
+    Type: String
+    Default: 10.0.64.0/20
+  PrivateSubnet3CIDR:
+    Description: The IP range (CIDR notation) for the private subnet in the third availability zone
+    Type: String
+    Default: 10.0.80.0/20
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Environment"
+        Parameters:
+          - EnvironmentName
+      - Label:
+          default: "VPC Configuration"
+        Parameters:
+          - VpcCIDR
+      - Label:
+          default: "Public Subnet Configuration"
+        Parameters:
+          - PublicSubnet1CIDR
+          - PublicSubnet2CIDR
+          - PublicSubnet3CIDR
+      - Label:
+          default: "Private Subnet Configuration"
+          Parameters:
+            - PrivateSubnet1CIDR
+            - PrivateSubnet2CIDR
+            - PrivateSubnet3CIDR
+#    ParameterLabels:
+#      VpcCIDR:
+#        default:
+Resources:
+
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
+
+  VPCInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-igw'
+
+  VPCInternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref VPCInternetGateway
+      VpcId: !Ref VPC
+
+  # route table to be attached to all public subnets
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-public-route-table
+
+  # All public subnets have access to internet
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCInternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref VPCInternetGateway
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnet1CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Join ['-', ['Public', !Ref EnvironmentName, !Select [ 0, !GetAZs  '' ]]]
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnet2CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Join ['-', ['Public', !Ref EnvironmentName, !Select [ 1, !GetAZs  '' ]]]
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet2
+
+  PublicSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 2, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnet3CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Join ['-', ['Public', !Ref EnvironmentName, !Select [ 2, !GetAZs  '' ]]]
+  PublicSubnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet3
+
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-private-route-table
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnet1CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join ['-', ['Private', !Ref EnvironmentName, !Select [ 0, !GetAZs  '' ]]]
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet1
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnet2CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join ['-', ['Private', !Ref EnvironmentName, !Select [ 1, !GetAZs  '' ]]]
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet2
+
+  PrivateSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 2, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnet3CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join ['-', ['Private', !Ref EnvironmentName, !Select [ 2, !GetAZs  '' ]]]
+  PrivateSubnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet3
+
+  PublicWebAccessSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub ${EnvironmentName}-sg-ssh-public
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-public-webaccess'
+  PublicWebAccessIngressIPv4:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt PublicWebAccessSecurityGroup.GroupId
+      IpProtocol: tcp
+      CidrIp: 0.0.0.0/0
+#      CidrIpv6: ::/0
+      FromPort: 22
+      ToPort: 22
+      Description: IPv4 SSH Access from Anywhere
+  PublicWebAccessIngressIPv6:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt PublicWebAccessSecurityGroup.GroupId
+      IpProtocol: tcp
+#      CidrIp: 0.0.0.0/0
+      CidrIpv6: ::/0
+      FromPort: 22
+      ToPort: 22
+      Description: IPv6 SSH Access from Anywhere
+#  PublicWebAccessEgressIPv4:
+#    Type: AWS::EC2::SecurityGroupEgress
+#    Properties:
+#      GroupId: !GetAtt PublicWebAccessSecurityGroup.GroupId
+#      IpProtocol: tcp
+#      CidrIp: 0.0.0.0/0
+##      CidrIpv6: ::/0
+#      FromPort: 22
+#      ToPort: 22
+#      Description: IPv4 SSH Access from Anywhere
+#  PublicWebAccessEgressIPv6:
+#    Type: AWS::EC2::SecurityGroupEgress
+#    Properties:
+#      GroupId: !GetAtt PublicWebAccessSecurityGroup.GroupId
+#      IpProtocol: tcp
+##      CidrIp: 0.0.0.0/0
+#      CidrIpv6: ::/0
+#      FromPort: 22
+#      ToPort: 22
+#      Description: IPv6 SSH Access from Anywhere
+
+  InternalAccessSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub ${EnvironmentName}-sg-ssh-private
+      VpcId: !Ref VPC
+  InternalAccessIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt InternalAccessSecurityGroup.GroupId
+      SourceSecurityGroupId: !Ref PublicWebAccessSecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      Description: IPv4 SSH Access from JumpHost
+#  InternalAccessEgress:
+#    Type: AWS::EC2::SecurityGroupEgress
+#    Properties:
+#      GroupId: !GetAtt InternalAccessSecurityGroup.GroupId
+#      DestinationSecurityGroupId: !Ref PublicWebAccessSecurityGroup
+#      IpProtocol: tcp
+#      FromPort: 22
+#      ToPort: 22
+#      Description: IPv4 SSH Access from JumpHost
+
+
+#  NatGateway1EIP:
+#    Type: AWS::EC2::EIP
+#    DependsOn: InternetGatewayAttachment
+#    Properties:
+#      Domain: vpc
+#  NatGateway2EIP:
+#    Type: AWS::EC2::EIP
+#    DependsOn: InternetGatewayAttachment
+#    Properties:
+#      Domain: vpc
+#  NatGateway3EIP:
+#    Type: AWS::EC2::EIP
+#    DependsOn: InternetGatewayAttachment
+#    Properties:
+#      Domain: vpc
+
+#  NatGateway1:
+#    Type: AWS::EC2::NatGateway
+#    Properties:
+#      AllocationId: !GetAtt NatGateway1EIP.AllocationId
+#      SubnetId: !Ref PublicSubnet1
+#  NatGateway2:
+#    Type: AWS::EC2::NatGateway
+#    Properties:
+#      AllocationId: !GetAtt NatGateway2EIP.AllocationId
+#      SubnetId: !Ref PublicSubnet2
+#  NatGateway3:
+#    Type: AWS::EC2::NatGateway
+#    Properties:
+#      AllocationId: !GetAtt NatGateway3EIP.AllocationId
+#      SubnetId: !Ref PublicSubnet3
+
+
+
+
+
+
+
+
+#  PrivateRouteTable1:
+#    Type: AWS::EC2::RouteTable
+#    Properties:
+#      VpcId: !Ref VPC
+#      Tags:
+#        - Key: Name
+#          Value: !Join ['', [!Ref EnvironmentName, 'Private Routes (',  !Select [ 0, !GetAZs  '' ], ')']]
+#  DefaultPrivateRoute1:
+#    Type: AWS::EC2::Route
+#    Properties:
+#      RouteTableId: !Ref PrivateRouteTable1
+#      DestinationCidrBlock: 0.0.0.0/0
+#      NatGatewayId: !Ref NatGateway1
+
+#  PrivateRouteTable2:
+#    Type: AWS::EC2::RouteTable
+#    Properties:
+#      VpcId: !Ref VPC
+#      Tags:
+#        - Key: Name
+#          Value: !Join ['', [!Ref EnvironmentName, 'Private Routes (',  !Select [ 1, !GetAZs  '' ], ')']]
+#  DefaultPrivateRoute2:
+#    Type: AWS::EC2::Route
+#    Properties:
+#      RouteTableId: !Ref PrivateRouteTable2
+#      DestinationCidrBlock: 0.0.0.0/0
+#      NatGatewayId: !Ref NatGateway2
+
+#  PrivateRouteTable3:
+#    Type: AWS::EC2::RouteTable
+#    Properties:
+#      VpcId: !Ref VPC
+#      Tags:
+#        - Key: Name
+#          Value: !Join ['', [!Ref EnvironmentName, 'Private Routes (',  !Select [ 2, !GetAZs  '' ], ')']]
+#  DefaultPrivateRoute3:
+#    Type: AWS::EC2::Route
+#    Properties:
+#      RouteTableId: !Ref PrivateRouteTable3
+#      DestinationCidrBlock: 0.0.0.0/0
+#      NatGatewayId: !Ref NatGateway3
+
+#  SSHSecurityGroup:
+#    Type: AWS::EC2::SecurityGroup
+#    Properties:
+#      GroupDescription: !Sub Security Group for ${EnvironmentName}
+#      SecurityGroupIngress:
+#        - CidrIp: 73.189.167.179/32
+#          FromPort: 22
+#          ToPort: 22
+#          IpProtocol: tcp
+#          Description: SSH Access from Moss Beach
+#      VpcId: !Ref VPC
+#      Tags:
+#        - Key: Name
+#          Value: !Sub 'SSH SecurityGroup for VPC ${EnvironmentName}'
+
+#  NoIngressSecurityGroup:
+#    Type: AWS::EC2::SecurityGroup
+#    Properties:
+#      GroupName: "no-ingress-sg"
+#      GroupDescription: "Security group with no ingress rule"
+#      VpcId: !Ref VPC
+
+Outputs:
+  VPC:
+    Description: A reference to the created VPC
+    Value: !Ref VPC
+
+  PublicSubnets:
+    Description: A list of the public subnets
+    Value: !Join [ ",", [ !Ref PublicSubnet1, !Ref PublicSubnet2, !Ref PublicSubnet3 ]]
+
+  PrivateSubnets:
+    Description: A list of the private subnets
+    Value: !Join [ ",", [ !Ref PrivateSubnet1, !Ref PrivateSubnet2, !Ref PrivateSubnet3 ]]
+
+  PublicSubnet1:
+    Description: A reference to the public subnet in the 1st Availability Zone
+    Value: !Ref PublicSubnet1
+
+  PublicSubnet2:
+    Description: A reference to the public subnet in the 2nd Availability Zone
+    Value: !Ref PublicSubnet2
+
+  PublicSubnet3:
+    Description: A reference to the public subnet in the 3rd Availability Zone
+    Value: !Ref PublicSubnet3
+
+  PrivateSubnet1:
+    Description: A reference to the private subnet in the 1st Availability Zone
+    Value: !Ref PrivateSubnet1
+
+  PrivateSubnet2:
+    Description: A reference to the private subnet in the 2nd Availability Zone
+    Value: !Ref PrivateSubnet2
+
+  PrivateSubnet3:
+    Description: A reference to the private subnet in the 3rd Availability Zone
+    Value: !Ref PrivateSubnet3
+
+#  SSHSecurityGroup:
+#    Description: SSH Security Group
+#    Value: !Ref SSHSecurityGroup
+
+
+#  NoIngressSecurityGroup:
+#    Description: Security group with no ingress rule
+#    Value: !Ref NoIngressSecurityGroup
