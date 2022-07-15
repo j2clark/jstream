@@ -1,0 +1,80 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: HTTP API Application
+
+# Requires exported value LambdaFunctionRoleArn
+
+Parameters:
+  EnvironmentName:
+    Description: An environment name prefixed to resource names and tags
+    Type: String
+#  APIName:
+#    Description: An application name prefixed to resource names and tags
+#    Type: String
+
+Resources:
+
+  RestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      EndpointConfiguration:
+        Types:
+          - EDGE
+      Name: !Ref AWS::StackName
+
+  RestApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - HelloWorldApiGatewayMethod
+    Properties:
+      RestApiId: !Ref RestApi
+      StageName: dev
+
+  # Route 1: GET /hello_world
+  HelloWorldApiGatewayResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: hello_world
+      RestApiId: !Ref RestApi
+  HelloWorldApiGatewayMethod:
+    Type: AWS::ApiGateway::Method
+    DependsOn:
+      - HelloWorldFunctionApiGatewayPermission
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: NONE
+      HttpMethod: GET
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Join ['', ['arn:', !Ref AWS::Partition, ':apigateway:', !Ref AWS::Region, ':lambda:path/2015-03-31/functions/', !GetAtt HelloWorldFunction.Arn, '/invocations']]
+      ResourceId: !Ref HelloWorldApiGatewayResource
+      RestApiId: !Ref RestApi
+  HelloWorldFunctionApiGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt HelloWorldFunction.Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Join ['', ['arn:', !Ref AWS::Partition, ':execute-api:', !Ref AWS::Region, ':', !Ref AWS::AccountId, ':', !Ref RestApi, '/*/*']]
+  HelloWorldFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            return {
+              isBase64Encoded: false,
+              statusCode:      200,
+              headers:         { "content-type": "text/plain"},
+              body:            `Your request:\n\n${JSON.stringify(event)}`
+            }
+          }
+      Handler: index.handler
+      Role: !Sub
+        - ${ImportedLambdaFunctionRoleArn}
+        - ImportedLambdaFunctionRoleArn: !ImportValue
+            'Fn::Sub': "${EnvironmentName}-LambdaFunctionRoleArn"
+#      Role: !ImportValue
+#        'Fn::Sub': "${EnvironmentName}-LambdaFunctionRoleArn"
+      Runtime: nodejs14.x

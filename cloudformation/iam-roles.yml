@@ -1,0 +1,95 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: IAM Roles for Application
+
+Parameters:
+  EnvironmentName:
+    Description: An environment name prefixed to resource names and tags
+    Type: String
+
+  ReadKinesisStreamARNs:
+    Type: List<String>
+    Description: Comma seperated list of Kinesis Streams which can be read
+    Default: "*"
+  WriteKinesisStreamARNs:
+    Type: List<String>
+    Description: Comma seperated list of Kinesis Streams which can be published to
+    Default: "*"
+
+Resources:
+
+  KinesisWritePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${EnvironmentName}-KinesisReadPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - kinesis:DescribeStream
+              - kinesis:ListStreams
+              - kinesis:ListShards
+              - kinesis:putRecord
+              - kinesis:putRecords
+            #            Resource: !Join ['', ['arn:aws:kinesis:', !Ref AWS::Region, ':', !Ref AWS::AccountId, ':stream/*']]
+            Resource: !Ref WriteKinesisStreamARNs
+      Roles:
+        - Ref: LambdaFunctionRole
+
+  KinesisReadPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${EnvironmentName}-KinesisReadPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - kinesis:GetRecords
+              - kinesis:GetShardIterator
+              - kinesis:DescribeStream
+              - kinesis:ListStreams
+            Resource: !Ref ReadKinesisStreamARNs
+      Roles:
+        - Ref: LambdaFunctionRole
+
+  AppendToLogsPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${EnvironmentName}-AppendToLogsPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: "*"
+      Roles:
+        - Ref: LambdaFunctionRole
+
+  LambdaFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-LambdaRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: "/"
+
+Outputs:
+
+  LambdaFunctionRoleArn:
+    Description: Lambda Function IAM Role
+    Value: !GetAtt LambdaFunctionRole.Arn
+    Export:
+      Name: !Sub ${EnvironmentName}-LambdaFunctionRoleArn
+
+
