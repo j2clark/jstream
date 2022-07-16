@@ -64,10 +64,15 @@ Resources:
             Action:
               - logs:CreateLogGroup
               - logs:CreateLogStream
+              - logs:DescribeLogGroups
+              - logs:DescribeLogStreams
               - logs:PutLogEvents
+              - logs:GetLogEvents
+              - logs:FilterLogEvents
             Resource: "*"
       Roles:
         - Ref: LambdaFunctionRole
+        - Ref: ApiGatewayAccountRole
 
   LambdaFunctionRole:
     Type: AWS::IAM::Role
@@ -84,6 +89,21 @@ Resources:
               - sts:AssumeRole
       Path: "/"
 
+  ApiGatewayAccountRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-ApiGatewayAccountRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - apigateway.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: "/"
+
 Outputs:
 
   LambdaFunctionRoleArn:
@@ -92,4 +112,8 @@ Outputs:
     Export:
       Name: !Sub ${EnvironmentName}-LambdaFunctionRoleArn
 
-
+  ApiGatewayAccountRoleArn:
+    Description: ApiGateway Account IAM Role
+    Value: !GetAtt ApiGatewayAccountRole.Arn
+    Export:
+      Name: !Sub ${EnvironmentName}-ApiGatewayAccountRoleArn
