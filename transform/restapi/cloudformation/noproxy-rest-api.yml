@@ -1,0 +1,147 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: HTTP API Application
+
+# https://upload.io/blog/cloudformation-lambda-examples/
+# https://nickolaskraus.io/articles/creating-an-amazon-api-gateway-with-a-mock-integration-using-cloudformation
+
+# Requires exported value ${EnvironmentName}-LambdaFunctionRoleArn
+# Example for building dynamic ImportValue:
+# Role: !Sub
+#   - ${ImportedLambdaFunctionRoleArn}
+#   - ImportedLambdaFunctionRoleArn: !ImportValue
+#     'Fn::Sub': "${EnvironmentName}-LambdaFunctionRoleArn"
+
+# good website to test CORS
+# test-cors.org
+
+# TODO: Add custom resource to force redeployment of stage(s)
+# https://stackoverflow.com/questions/41423439/cloudformation-doesnt-deploy-to-api-gateway-stages-on-update
+
+Parameters:
+
+  EnvironmentName:
+    Description: An environment name prefixed to resource names and tags
+    Type: String
+
+Resources:
+
+  RestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      EndpointConfiguration:
+        Types:
+          - EDGE
+      Name: !Ref AWS::StackName
+
+  RestApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - HelloWorldGET
+    Properties:
+      RestApiId: !Ref RestApi
+      StageName: dev
+
+  GatewayResponse4XX:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      RestApiId: !Ref RestApi
+      ResponseType: DEFAULT_4XX
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        gatewayresponse.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+        gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+  GatewayResponse5XX:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      RestApiId: !Ref RestApi
+      ResponseType: DEFAULT_5XX
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        gatewayresponse.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+        gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+
+
+  HelloWorldApiGatewayResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: hello_world
+      RestApiId: !Ref RestApi
+
+  HelloWorldGET:
+    Type: AWS::ApiGateway::Method
+    DependsOn:
+      - HelloWorldFunctionApiGatewayPermission
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref HelloWorldApiGatewayResource
+      HttpMethod: GET
+      ApiKeyRequired: false
+      AuthorizationType: NONE
+      RequestValidatorId: !Ref HelloWorldRequestValidator
+      RequestParameters:
+        method.request.querystring.name: true
+      Integration:
+        Type: AWS
+        IntegrationHttpMethod: POST
+        Uri: !Join ['', ['arn:', !Ref AWS::Partition, ':apigateway:', !Ref AWS::Region, ':lambda:path/2015-03-31/functions/', !GetAtt HelloWorldFunction.Arn, '/invocations']]
+        RequestTemplates:
+          application/json: "{\"name\": \"$input.params('name')\"}"
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: "{\"result\": $input.json('$.body')}"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: !Ref HelloWorldResponseModel
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+  HelloWorldRequestValidator:
+    Type: AWS::ApiGateway::RequestValidator
+    Properties:
+      Name: HelloWorldGETValidator
+      RestApiId: !Ref RestApi
+      ValidateRequestBody: false
+      ValidateRequestParameters: true
+  HelloWorldFunctionApiGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt HelloWorldFunction.Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Join [ '', [ 'arn:', !Ref AWS::Partition, ':execute-api:', !Ref AWS::Region, ':', !Ref AWS::AccountId, ':', !Ref RestApi, '/*/*' ] ]
+  HelloWorldFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            const response = {
+              body: 'hello ' + event.name + '!'    
+            };
+            return response;
+          }
+      Handler: index.handler
+      Role: !Sub
+        - ${ImportedLambdaFunctionRoleArn}
+        - ImportedLambdaFunctionRoleArn: !ImportValue
+            'Fn::Sub': "${EnvironmentName}-LambdaFunctionRoleArn"
+      Runtime: nodejs14.x
+  HelloWorldResponseModel:
+    Type: AWS::ApiGateway::Model
+    Properties:
+      Name: HelloWorldResponse
+      RestApiId: !Ref RestApi
+      ContentType: application/json
+      Schema:
+#        $id: "http://j2clark.com/schemas/jstream/transformresponse.json"
+        $schema: 'http://json-schema.org/draft-07/schema#'
+        type: object
+        properties:
+          result:
+            type: string
+        required:
+          - result

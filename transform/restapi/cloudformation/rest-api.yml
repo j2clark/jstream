@@ -1,15 +1,27 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: HTTP API Application
 
-# Requires exported value LambdaFunctionRoleArn
+# https://upload.io/blog/cloudformation-lambda-examples/
+# https://nickolaskraus.io/articles/creating-an-amazon-api-gateway-with-a-mock-integration-using-cloudformation
+
+# Requires exported value ${EnvironmentName}-LambdaFunctionRoleArn
+# Example for building dynamic ImportValue:
+# Role: !Sub
+#   - ${ImportedLambdaFunctionRoleArn}
+#   - ImportedLambdaFunctionRoleArn: !ImportValue
+#     'Fn::Sub': "${EnvironmentName}-LambdaFunctionRoleArn"
+
+# good website to test CORS
+# test-cors.org
+
+# TODO: Add custom resource to force redeployment of stage(s)
+# https://stackoverflow.com/questions/41423439/cloudformation-doesnt-deploy-to-api-gateway-stages-on-update
 
 Parameters:
+
   EnvironmentName:
     Description: An environment name prefixed to resource names and tags
     Type: String
-#  APIName:
-#    Description: An application name prefixed to resource names and tags
-#    Type: String
 
 Resources:
 
@@ -24,10 +36,172 @@ Resources:
   RestApiDeployment:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
-      - HelloWorldApiGatewayMethod
+#      - RootOPTIONS
+#      - TransformOPTIONS
+      - TransformPOST
+#      - HelloWorldOPTIONS
+      - HelloWorldGET
     Properties:
       RestApiId: !Ref RestApi
       StageName: dev
+
+  # ROOT /
+#  RootOPTIONS:
+#    Type: AWS::ApiGateway::Method
+#    Properties:
+#      AuthorizationType: "NONE"
+#      HttpMethod: "OPTIONS"
+#      RestApiId: !Ref RestApi
+#      ResourceId: !GetAtt RestApi.RootResourceId
+#      Integration:
+#        Type: MOCK
+#        IntegrationResponses:
+#          - StatusCode: 200
+#            ResponseParameters:
+#              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+#              method.response.header.Access-Control-Allow-Methods: "'POST,GET,OPTIONS'"
+#              method.response.header.Access-Control-Allow-Origin: "'*'"
+#            ResponseTemplates:
+#              application/json: ''
+#        PassthroughBehavior: WHEN_NO_MATCH
+#        RequestTemplates:
+#          application/json: '{"statusCode": 200}'
+#      MethodResponses:
+#        - StatusCode: 200
+#          ResponseModels:
+#            application/json: 'Empty'
+#          ResponseParameters:
+#            method.response.header.Access-Control-Allow-Headers: false
+#            method.response.header.Access-Control-Allow-Methods: false
+#            method.response.header.Access-Control-Allow-Origin: false
+
+  # transform/
+  TransformResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: transform
+      RestApiId: !Ref RestApi
+#  TransformOPTIONS:
+#    Type: AWS::ApiGateway::Method
+#    Properties:
+#      AuthorizationType: "NONE"
+#      HttpMethod: "OPTIONS"
+#      RestApiId: !Ref RestApi
+#      ResourceId: !Ref TransformResource
+#      Integration:
+#        Type: MOCK
+
+  TransformPOST:
+    Type: AWS::ApiGateway::Method
+    DependsOn:
+      - TransformFunctionApiGatewayPermission
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref TransformResource
+      HttpMethod: POST
+      OperationName: PostTransform
+      ApiKeyRequired: false
+      AuthorizationType: NONE
+      RequestParameters:
+        method.request.querystring.jobname: false
+      RequestModels:
+        'application/json': !Ref TransformRequestModel
+      RequestValidatorId: !Ref TransformRequestValidator
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Join [ '', [ 'arn:', !Ref AWS::Partition, ':apigateway:', !Ref AWS::Region, ':lambda:path/2015-03-31/functions/', !GetAtt TransformFunction.Arn, '/invocations' ] ]
+
+
+  TransformRequestValidator:
+    Type: AWS::ApiGateway::RequestValidator
+    Properties:
+      Name: !Sub ${EnvironmentName}-TransformPOSTRequestValidator
+      RestApiId: !Ref RestApi
+      ValidateRequestBody: true
+      ValidateRequestParameters: true
+  TransformRequestModel:
+    Type: AWS::ApiGateway::Model
+    Properties:
+      Name: PostTransformRequest
+      RestApiId: !Ref RestApi
+      ContentType: application/json
+      Schema:
+        $schema: 'http://json-schema.org/draft-06/schema#'
+#        id: "http://j2clark.com/schemas/transformrequest.json"
+        title: TransformRequestModel
+        type: object
+        properties:
+          transform:
+            type: object
+          data:
+            type: object
+  TransformResponseModel:
+    Type: AWS::ApiGateway::Model
+    Properties:
+      Name: PostTransformResponse
+      RestApiId: !Ref RestApi
+      ContentType: application/json
+      Schema:
+        $schema: 'http://json-schema.org/draft-06/schema#'
+#        id: "http://j2clark.com/schemas/transformresponse.json"
+        title: TransformResponseModel
+        type: array
+        items:
+          type: object
+  TransformFunctionApiGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt TransformFunction.Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Join [ '', [ 'arn:', !Ref AWS::Partition, ':execute-api:', !Ref AWS::Region, ':', !Ref AWS::AccountId, ':', !Ref RestApi, '/*/*' ] ]
+  TransformFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            return {
+              isBase64Encoded: false,
+              statusCode:      200,
+              headers:         { "content-type": "text/plain", "Access-Control-Allow-Origin": "*"},
+              body:            `Your request:\n\n${JSON.stringify(event)}`
+            }
+          }
+      Handler: index.handler
+      Role: !Sub
+        - ${ImportedLambdaFunctionRoleArn}
+        - ImportedLambdaFunctionRoleArn: !ImportValue
+            'Fn::Sub': "${EnvironmentName}-LambdaFunctionRoleArn"
+      Runtime: nodejs14.x
+
+#  NoProxyApiGatewayResource:
+#    Type: AWS::ApiGateway::Resource
+#    Properties:
+#      ParentId: !GetAtt RestApi.RootResourceId
+#      PathPart: noproxy
+#      RestApiId: !Ref RestApi
+#  NoProxyGET:
+#    Type: AWS::ApiGateway::Method
+#    Properties:
+#      RestApiId: !Ref RestApi
+#      ResourceId: !Ref NoProxyApiGatewayResource
+#      AuthorizationType: NONE
+#      HttpMethod: GET
+#      RequestParameters:
+#        method.request.querystring.name: true
+#      MethodResponses:
+#        - StatusCode: 200
+#      Integration:
+#        Type: AWS
+#        IntegrationHttpMethod: POST
+#        Uri: !Join ['', ['arn:', !Ref AWS::Partition, ':apigateway:', !Ref AWS::Region, ':lambda:path/2015-03-31/functions/', !GetAtt HelloWorldFunction.Arn, '/invocations']]
+#        IntegrationResponses:
+#          - StatusCode: 200
+#        RequestTemplates:
+#          "application/json": "{\"name\": \"$input.params('name')\"}"
 
   # Route 1: GET /hello_world
   HelloWorldApiGatewayResource:
@@ -36,20 +210,88 @@ Resources:
       ParentId: !GetAtt RestApi.RootResourceId
       PathPart: hello_world
       RestApiId: !Ref RestApi
-  HelloWorldApiGatewayMethod:
+#  HelloWorldOPTIONS:
+#    Type: AWS::ApiGateway::Method
+#    Properties:
+#      AuthorizationType: "NONE"
+#      HttpMethod: "OPTIONS"
+#      RestApiId: !Ref RestApi
+#      ResourceId: !Ref HelloWorldApiGatewayResource
+#      Integration:
+#        Type: MOCK
+#        IntegrationResponses:
+#          - StatusCode: 200
+#            ResponseParameters:
+#              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+#              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+#              method.response.header.Access-Control-Allow-Origin: "'*'"
+#            ResponseTemplates:
+#              application/json: ''
+#        PassthroughBehavior: WHEN_NO_MATCH
+#        RequestTemplates:
+#          application/json: '{"statusCode": 200}'
+#      MethodResponses:
+#        - StatusCode: 200
+#          ResponseModels:
+#            application/json: 'Empty'
+#          ResponseParameters:
+#            method.response.header.Access-Control-Allow-Headers: false
+#            method.response.header.Access-Control-Allow-Methods: false
+#            method.response.header.Access-Control-Allow-Origin: false
+  HelloWorldGET:
     Type: AWS::ApiGateway::Method
     DependsOn:
       - HelloWorldFunctionApiGatewayPermission
     Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref HelloWorldApiGatewayResource
+      HttpMethod: GET
       ApiKeyRequired: false
       AuthorizationType: NONE
-      HttpMethod: GET
+#      RequestParameters:
+#        method.request.querystring.name: true
+#      RequestValidatorId: !Ref HelloWorldGETRequestValidator
       Integration:
         IntegrationHttpMethod: POST
         Type: AWS_PROXY
         Uri: !Join ['', ['arn:', !Ref AWS::Partition, ':apigateway:', !Ref AWS::Region, ':lambda:path/2015-03-31/functions/', !GetAtt HelloWorldFunction.Arn, '/invocations']]
-      ResourceId: !Ref HelloWorldApiGatewayResource
-      RestApiId: !Ref RestApi
+#      AuthorizationScopes:
+#        - String
+#      AuthorizerId: String
+#      MethodResponses:
+#        - MethodResponse
+#      OperationName: String
+#      RequestModels:
+#        Key: Value
+
+#  HelloWorldGETRequestValidator:
+#    Type: AWS::ApiGateway::RequestValidator
+#    Properties:
+#      Name: HelloWorldGETRequestValidator
+#      RestApiId: !Ref RestApi
+#      ValidateRequestBody: false
+#      ValidateRequestParameters: true
+#  ApiGatewayModel:
+#    Type: AWS::ApiGateway::Model
+#    Properties:
+#      ContentType: 'application/json'
+#      RestApiId: !Ref RestApi
+#      Schema:
+#        $schema: 'http://json-schema.org/draft-04/schema#'
+#        title: PetsModelNoFlatten
+#        type: array
+#        items:
+#          type: object
+#          properties:
+#            number:
+#              type: integer
+#            class:
+#              type: string
+#            salesPrice:
+#              type: number
+
+
+
   HelloWorldFunctionApiGatewayPermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -66,7 +308,10 @@ Resources:
             return {
               isBase64Encoded: false,
               statusCode:      200,
-              headers:         { "content-type": "text/plain"},
+              headers:         { 
+                "content-type": "text/plain",
+                "Access-Control-Allow-Origin": "*"
+              },
               body:            `Your request:\n\n${JSON.stringify(event)}`
             }
           }
@@ -75,6 +320,9 @@ Resources:
         - ${ImportedLambdaFunctionRoleArn}
         - ImportedLambdaFunctionRoleArn: !ImportValue
             'Fn::Sub': "${EnvironmentName}-LambdaFunctionRoleArn"
-#      Role: !ImportValue
-#        'Fn::Sub': "${EnvironmentName}-LambdaFunctionRoleArn"
       Runtime: nodejs14.x
+
+Outputs:
+  ApiUrlDev:
+    Description: URL of the HTTP API.
+    Value: !Join ['', [!Ref RestApi, '.execute-api.', !Ref AWS::Region, '.', !Ref AWS::URLSuffix, '/dev']]
