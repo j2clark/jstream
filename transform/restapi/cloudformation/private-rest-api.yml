@@ -179,6 +179,32 @@ Resources:
       SecurityGroupIds:
         - Ref: PrivateRestAPISecurityGroup
 
+  WebAccessSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: !Sub '${EnvironmentName}-web-access'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          CidrIp: 0.0.0.0/0
+          FromPort: 80
+          ToPort: 80
+        - IpProtocol: tcp
+          CidrIpv6: ::/0
+          FromPort: 80
+          ToPort: 80
+        - IpProtocol: tcp
+          CidrIp: 0.0.0.0/0
+          FromPort: 443
+          ToPort: 443
+        - IpProtocol: tcp
+          CidrIpv6: ::/0
+          FromPort: 443
+          ToPort: 443
+
+  #----------------
+  # IAM Roles/Policies
+  #----------------
 
   ApiGatewayAccountRole:
     Type: AWS::IAM::Role
@@ -210,164 +236,31 @@ Resources:
                   - logs:FilterLogEvents
                 Resource: "*"
 
-  PrivateRestApi:
-    Type: AWS::ApiGateway::RestApi
+  LambdaFunctionRole:
+    Type: AWS::IAM::Role
     Properties:
-      Name: !Join ['-', [!Ref EnvironmentName, !Ref AWS::StackName]]
-      EndpointConfiguration:
-        Types:
-          - PRIVATE
-        VpcEndpointIds:
-          - !Ref PrivateRestAPIEndpoint
-      Policy:
-        Version: 2012-10-17
+      RoleName: !Sub ${EnvironmentName}-LambdaRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
         Statement:
-          - Effect: Deny
-            Principal: "*"
-            Action: execute-api:Invoke
-#            Resource: !Join [':', ['arn:aws:execute-api', !Ref AWS::Region, !Ref AWS::AccountId, '*/*']]
-            Resource: 'execute-api:/*'
-            Condition:
-              StringNotEquals:
-                "aws:sourceVpc": !Ref VPC
           - Effect: Allow
-            Principal: "*"
-            Action: execute-api:Invoke
-#            Resource: !Join [ ':', [ 'arn:aws:execute-api', !Ref AWS::Region, !Ref AWS::AccountId, '*/*' ] ]
-            Resource: 'execute-api:/*'
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole'
 
-#  RestApiAccount:
-#    Type: AWS::ApiGateway::Account
-#    Properties:
-#      CloudWatchRoleArn: !Sub
-#        - ${ImportedPrivateApiGatewayAccountRoleArn}
-#        - ImportedPrivateApiGatewayAccountRoleArn: !ImportValue
-#            'Fn::Sub': "${EnvironmentName}-PrivateApiGatewayAccountRoleArn"
-#
-#  RestApiLogGroup:
-#    Type: AWS::Logs::LogGroup
-#    Properties:
-#      LogGroupName: !Join [ '-', [ !Ref EnvironmentName, !Ref AWS::StackName ] ]
-#      RetentionInDays: 1
-#
-#  PrivateRestApiPolicy:
-#    Type: AWS::IAM::Policy
-#    Properties:
-#      PolicyName: !Sub ${EnvironmentName}-PrivateRestAPIPolicy
-#      PolicyDocument:
-#        Version: '2012-10-17'
-#        Statement:
-#          - Effect: Deny
-##            Principal: "*"
-#            Action: execute-api:Invoke
-#            Resource: !Join [':', ['arn:aws:execute-api', !Ref AWS::Region, !Ref AWS::AccountId, '*/*/*/*']]
-#            Condition:
-#              StringNotEquals:
-#                aws:sourceVpc: !Ref VpcId
-#          - Effect: Allow
-##            Principal: "*"
-#            Action: execute-api:Invoke
-#            Resource: !Join [ ':', [ 'arn:aws:execute-api', !Ref AWS::Region, !Ref AWS::AccountId, '*/*/*/*' ] ]
-#      Roles:
-#        - MyApp-PrivateApiGatewayAccountRole
-#
-#  RestApiDeployment:
-#    Type: AWS::ApiGateway::Deployment
-#    DependsOn:
-#      - HelloWorldGET
-#    Properties:
-#      RestApiId: !Ref RestApi
-#
-#  RestApiStageDev:
-#    Type: AWS::ApiGateway::Stage
-#    Properties:
-#      RestApiId: !Ref RestApi
-#      StageName: dev
-#      DeploymentId: !Ref RestApiDeployment
-#      #      TracingEnabled: true
-#      AccessLogSetting:
-#        #        DestinationArn: !GetAtt KinesisFirehoseLogStream.Arn
-#        DestinationArn: !GetAtt RestApiLogGroup.Arn
-#        #       https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html#context-variable-reference?cmpid=docs_apigateway_console
-#        Format: "{ 'requestId':'$context.requestId', 'ip': '$context.identity.sourceIp', 'caller':'$context.identity.caller', 'user':'$context.identity.user','requestTime':'$context.requestTime', 'xrayTraceId':'$context.xrayTraceId', 'wafResponseCode':'$context.wafResponseCode', 'httpMethod':'$context.httpMethod','resourcePath':'$context.resourcePath', 'status':'$context.status','protocol':'$context.protocol', 'responseLength':'$context.responseLength' }"
-#      MethodSettings:
-#        - ResourcePath: "/*"
-#          HttpMethod: "*"
-#          LoggingLevel: INFO
-#          MetricsEnabled: true
-#          DataTraceEnabled: true
-##          ThrottlingBurstLimit: Integer
-##          ThrottlingRateLimit: Double
-#
-#  HelloWorldApiGatewayResource:
-#    Type: AWS::ApiGateway::Resource
-#    Properties:
-#      ParentId: !GetAtt RestApi.RootResourceId
-#      PathPart: hello_world
-#      RestApiId: !Ref RestApi
-#  HelloWorldGET:
-#    Type: AWS::ApiGateway::Method
-#    DependsOn:
-#      - HelloWorldFunctionApiGatewayPermission
-#    Properties:
-#      RestApiId: !Ref RestApi
-#      ResourceId: !Ref HelloWorldApiGatewayResource
-#      HttpMethod: GET
-#      ApiKeyRequired: false
-#      AuthorizationType: NONE
-#      RequestValidatorId: !Ref HelloWorldRequestValidator
-#      RequestParameters:
-#        method.request.querystring.name: true
-#      Integration:
-#        Type: AWS
-#        IntegrationHttpMethod: POST
-#        Uri: !Join ['', ['arn:', !Ref AWS::Partition, ':apigateway:', !Ref AWS::Region, ':lambda:path/2015-03-31/functions/', !GetAtt HelloWorldFunction.Arn, '/invocations']]
-#        RequestTemplates:
-#          application/json: "{\"name\": \"$input.params('name')\"}"
-#        IntegrationResponses:
-#          - StatusCode: 200
-#            ResponseParameters:
-#              method.response.header.Access-Control-Allow-Origin: "'*'"
-#            ResponseTemplates:
-#              application/json: "{\"result\": $input.json('$.body')}"
-#      MethodResponses:
-#        - StatusCode: 200
-#          ResponseModels:
-#            application/json: !Ref HelloWorldResponseModel
-#          ResponseParameters:
-#            method.response.header.Access-Control-Allow-Origin: true
-#  HelloWorldRequestValidator:
-#    Type: AWS::ApiGateway::RequestValidator
-#    Properties:
-#      Name: HelloWorldGETValidator
-#      RestApiId: !Ref RestApi
-#      ValidateRequestBody: false
-#      ValidateRequestParameters: true
-#  HelloWorldResponseModel:
-#    Type: AWS::ApiGateway::Model
-#    Properties:
-#      Name: HelloWorldResponse
-#      RestApiId: !Ref RestApi
-#      ContentType: application/json
-#      Schema:
-#        #        $id: "http://j2clark.com/schemas/jstream/transformresponse.json"
-#        $schema: 'http://json-schema.org/draft-07/schema#'
-#        type: object
-#        properties:
-#          result:
-#            type: string
-#        required:
-#          - result
-#  HelloWorldFunctionApiGatewayPermission:
-#    Type: AWS::Lambda::Permission
-#    Properties:
-#      Action: lambda:InvokeFunction
-#      FunctionName: !GetAtt HelloWorldFunction.Arn
-#      Principal: apigateway.amazonaws.com
-#      SourceArn: !Join [ '', [ 'arn:', !Ref AWS::Partition, ':execute-api:', !Ref AWS::Region, ':', !Ref AWS::AccountId, ':', !Ref RestApi, '/*/*' ] ]
-#
-#  HelloWorldFunction:
+  #----------------
+  # Functions
+  #----------------
+
+#  PublicHelloWorldFunction:
 #    Type: AWS::Lambda::Function
+##    DependsOn:
+##      - PrivateRestApi
 #    Properties:
 #      FunctionName: !Join [ '-', [ !Ref EnvironmentName, !Ref AWS::StackName, 'HelloWorld' ] ]
 #      Code:
@@ -379,15 +272,218 @@ Resources:
 #            return response;
 #          }
 #      Handler: index.handler
-#      Role: !Sub
-#        - ${ImportedLambdaFunctionRoleArn}
-#        - ImportedLambdaFunctionRoleArn: !ImportValue
-#            'Fn::Sub': "${EnvironmentName}-LambdaFunctionRoleArn"
+#      Role: !GetAtt LambdaFunctionRole.Arn
 #      Runtime: nodejs14.x
-##      VpcConfig:
-##        SecurityGroupIds:
-##          - !Ref LambdaVPCSecurityGroup
-##        #        SubnetIds: !Ref Subnets
-##        SubnetIds:
-##          - !Ref PrivateSubnet1
-##          - !Ref PrivateSubnet2
+#      VpcConfig:
+#        SecurityGroupIds:
+#          - !Ref WebAccessSecurityGroup
+#        SubnetIds:
+#          - !Ref PublicSubnet1a
+#          - !Ref PrivateSubnet1a
+
+  PrivateHelloWorldFunction:
+    Type: AWS::Lambda::Function
+    #    DependsOn:
+    #      - PrivateRestApi
+    Properties:
+      FunctionName: !Join [ '-', [ !Ref EnvironmentName, !Ref AWS::StackName, 'PrivateHelloWorld' ] ]
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            const response = {
+              body: 'hello ' + event.name + '!'    
+            };
+            return response;
+          }
+      Handler: index.handler
+      Role: !GetAtt LambdaFunctionRole.Arn
+      Runtime: nodejs14.x
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref WebAccessSecurityGroup
+        SubnetIds:
+          - !Ref PublicSubnet1a
+
+  #----------------
+  # REST Applications
+  #----------------
+
+  RestApiAccount:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn: !GetAtt ApiGatewayAccountRole.Arn
+
+  #----------------
+  # Public REST Applications
+  #----------------
+  PublicRestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Join [ '-', [ !Ref EnvironmentName, 'PublicRestAPI' ] ]
+      EndpointConfiguration:
+        Types:
+          - EDGE
+  PublicRestApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Join [ '-', [ !Ref EnvironmentName, !Ref AWS::StackName, 'PublicRestAPI' ] ]
+      RetentionInDays: 1
+  PublicGatewayResponse4XX:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      RestApiId: !Ref PublicRestApi
+      ResponseType: DEFAULT_4XX
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        gatewayresponse.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+        gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+  PublicGatewayResponse5XX:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      RestApiId: !Ref PublicRestApi
+      ResponseType: DEFAULT_5XX
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        gatewayresponse.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+        gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+
+  PublicHelloWorldGET:
+    Type: AWS::ApiGateway::Method
+    DependsOn:
+      - PublicHelloWorldFunctionApiGatewayPermission
+    Properties:
+      RestApiId: !Ref PublicRestApi
+      ResourceId: !GetAtt PublicRestApi.RootResourceId
+      HttpMethod: GET
+      ApiKeyRequired: false
+      AuthorizationType: NONE
+      RequestValidatorId: !Ref PublicHelloWorldGETRequestValidator
+      RequestParameters:
+        method.request.querystring.name: true
+      Integration:
+        Type: AWS
+        IntegrationHttpMethod: POST
+        Uri: !Join [ '', [ 'arn:', !Ref AWS::Partition, ':apigateway:', !Ref AWS::Region, ':lambda:path/2015-03-31/functions/', !GetAtt PrivateHelloWorldFunction.Arn, '/invocations' ] ]
+        RequestTemplates:
+          application/json: "{\"name\": \"$input.params('name')\"}"
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: "{\"result\": $input.json('$.body')}"
+      MethodResponses:
+        - StatusCode: 200
+#          ResponseModels:
+#            application/json: !Ref HelloWorldResponseModel
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+  PublicHelloWorldGETRequestValidator:
+    Type: AWS::ApiGateway::RequestValidator
+    Properties:
+      Name: HelloWorldGETValidator
+      RestApiId: !Ref PublicRestApi
+      ValidateRequestBody: false
+      ValidateRequestParameters: true
+  PublicHelloWorldFunctionApiGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt PrivateHelloWorldFunction.Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Join [ '', [ 'arn:', !Ref AWS::Partition, ':execute-api:', !Ref AWS::Region, ':', !Ref AWS::AccountId, ':', !Ref PublicRestApi, '/*/*' ] ]
+
+  PublicRestApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - PublicHelloWorldGET
+    Properties:
+      RestApiId: !Ref PublicRestApi
+
+  PublicRestApiStageDev:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref PublicRestApi
+      StageName: dev
+      DeploymentId: !Ref PublicRestApiDeployment
+      AccessLogSetting:
+        DestinationArn: !GetAtt PublicRestApiLogGroup.Arn
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          LoggingLevel: INFO
+          MetricsEnabled: true
+          DataTraceEnabled: true
+
+  #----------------
+  # Private REST Applications
+  #----------------
+#  PrivateRestApiLogGroup:
+#    Type: AWS::Logs::LogGroup
+#    Properties:
+#      LogGroupName: !Join [ '-', [ !Ref EnvironmentName, !Ref AWS::StackName, 'PrivateRestAPI' ] ]
+#      RetentionInDays: 1
+#
+#  PrivateRestApi:
+#    Type: AWS::ApiGateway::RestApi
+#    Properties:
+#      Name: !Join ['-', [!Ref EnvironmentName, 'PrivateRestAPI']]
+#      EndpointConfiguration:
+#        Types:
+#          - PRIVATE
+#        VpcEndpointIds:
+#          - !Ref PrivateRestAPIEndpoint
+#      Policy:
+#        Version: 2012-10-17
+#        Statement:
+#          - Effect: Deny
+#            Principal: "*"
+#            Action: execute-api:Invoke
+#            # "execute-api:/*" resolves to "arn:aws:execute-api:<Region>:<AccountId>:<RestApiID>/*"
+#            Resource: 'execute-api:/*'
+#            Condition:
+#              StringNotEquals:
+#                "aws:sourceVpc": !Ref VPC
+#          - Effect: Allow
+#            Principal: "*"
+#            Action: execute-api:Invoke
+#            # "execute-api:/*" resolves to "arn:aws:execute-api:<Region>:<AccountId>:<RestApiID>/*"
+#            Resource: 'execute-api:/*'
+#  PrivateHelloWorldGET:
+#    Type: AWS::ApiGateway::Method
+#    DependsOn:
+#      - PrivateHelloWorldFunctionApiGatewayPermission
+#    Properties:
+#      RestApiId: !Ref PrivateRestApi
+#      ResourceId: !GetAtt PrivateRestApi.RootResourceId
+#      HttpMethod: GET
+#      ApiKeyRequired: false
+#      AuthorizationType: NONE
+##      RequestValidatorId: !Ref PrivateHelloWorldGETRequestValidator
+#      RequestParameters:
+#        method.request.querystring.name: true
+#      Integration:
+#        Type: AWS
+#        IntegrationHttpMethod: POST
+#        Uri: !Join [ '', [ 'arn:', !Ref AWS::Partition, ':apigateway:', !Ref AWS::Region, ':lambda:path/2015-03-31/functions/', !GetAtt PrivateHelloWorldFunction.Arn, '/invocations' ] ]
+#        RequestTemplates:
+#          application/json: "{\"name\": \"$input.params('name')\"}"
+#        IntegrationResponses:
+#          - StatusCode: 200
+#            ResponseParameters:
+#              method.response.header.Access-Control-Allow-Origin: "'*'"
+#            ResponseTemplates:
+#              application/json: "{\"result\": $input.json('$.body')}"
+#      MethodResponses:
+#        - StatusCode: 200
+##          ResponseModels:
+##            application/json: !Ref HelloWorldResponseModel
+#          ResponseParameters:
+#            method.response.header.Access-Control-Allow-Origin: true
+#  PrivateHelloWorldFunctionApiGatewayPermission:
+#    Type: AWS::Lambda::Permission
+#    Properties:
+#      Action: lambda:InvokeFunction
+#      FunctionName: !GetAtt PrivateHelloWorldFunction.Arn
+#      Principal: apigateway.amazonaws.com
+#      SourceArn: !Join [ '', [ 'arn:', !Ref AWS::Partition, ':execute-api:', !Ref AWS::Region, ':', !Ref AWS::AccountId, ':', !Ref PrivateRestApi, '/*/*' ] ]
